@@ -10,26 +10,106 @@
             var game = {
                 width: 800,
                 height: 600,
-                fps: 30,
+                framesIntervalTime: 40,        //measured in ms (fps:25)
                 scene: {
                     children: [],
                     add: function (newScene) {
                         this.children.push(newScene);
                     },
-                    start: sceneStart,
-                    stop: sceneStop,
-                    pause: scenePause
+                    getScene: function (sceneName) {
+                        return this.children.find( function (elem) {
+                            return elem.name == sceneName;
+                        } );
+                    },
+                    start: function (sceneName) {
+                        sceneStart( this.getScene(sceneName) );
+                    },
+                    stop: function (sceneName) {
+                        sceneStop( this.getScene(sceneName) );
+                    },
+                    pause: function (sceneName) {
+                        scenePause( this.getScene(sceneName) );
+                    },
+                    wake: function (sceneName) {
+                        sceneWake( this.getScene(sceneName) );
+                    }
                 }
             };
 
-            function sceneStart (sceneName) {
+            game.scene.add( {
+                name: 'Menu',
+                status: 'stopped',
+                preload: function () {
 
+                },
+                create: function () {
+
+                },
+                update: function () {
+
+                }
+            } );
+
+            game.scene.add( {
+                name: 'Game',
+                status: 'stopped',
+                preload: function () {
+
+                },
+                create: function () {
+
+                },
+                update: function () {
+
+                }
+            } );
+
+            run();
+            function run () {
+                game.scene.start('Menu');
+
+                var looping = true;
+                while (looping) {
+                    for (let scene of game.scene.children) {
+                        if (scene.status == 'running') {
+                            scene.update();
+                        }
+                    }
+
+                    sleep(framesIntervalTime);
+                }
             }
-            function sceneStop (sceneName) {
 
+            function sceneStart (scene) {
+                console.log(scene.name + ' scene preloading..');
+                scene.preload();
+                console.log(scene.name + ' scene creating..');
+                scene.create();
+                console.log(scene.name + ' scene running...');
+                scene.status = 'running';
             }
-            function scenePause (sceneName) {
+            function sceneStop (scene) {
+                console.log(scene.name + ' scene stopped');
+                scene.status = 'stopped';
+            }
+            function scenePause (scene) {
+                console.log(scene.name + ' scene paused');
+                scene.status = 'paused';
+            }
+            function sceneWake (scene) {
+                if (scene.status == 'paused') {
+                    console.log(scene.name + ' scene waked');
+                    scene.status = 'running';
+                } else {
+                    console.log('[ERROR] ' + scene.name + ' scene not paused');
+                }
+            }
 
+            function sleep (milliseconds) {
+                var start = new Date().getTime();
+                while(true) {
+                    if ( (new Date().getTime() - start) > milliseconds ) { break; }
+                }
             }
         </script>
     </body>
