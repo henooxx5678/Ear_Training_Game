@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head>
+        <meta charset="utf-8">
+        <title>Ear Training Game</title>
+    </head>
+    <body>
+        <script type="text/javascript">
+
+            var game = {
+                width: 800,
+                height: 600,
+                fps: 30,
+                scene: {
+                    children: [],
+                    add: function (newScene) {
+                        this.children.push(newScene);
+                    },
+                    start: sceneStart,
+                    stop: sceneStop,
+                    pause: scenePause
+                }
+            };
+
+            function sceneStart (sceneName) {
+
+            }
+            function sceneStop (sceneName) {
+
+            }
+            function scenePause (sceneName) {
+                
+            }
+        </script>
+    </body>
+</html>
