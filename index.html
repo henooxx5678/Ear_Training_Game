@@ -68,6 +68,10 @@
                     off: function (panelName) {
                         panelOff( this.get(panelName) );
                     }
+                },
+                loaded: {
+                    image: {},
+                    sprite: {}
                 }
             };
 
@@ -75,10 +79,10 @@
                 name: 'Menu',
                 status: 'stopped',
                 preload: function () {
-
+                    
                 },
                 create: function () {
-
+                    game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
                 },
                 update: function () {
 
@@ -99,7 +103,7 @@
                 }
             } );
 
-            game.panel.add( {
+            game.panels.add( {
                 name: 'Menu',
                 status: 'off',
                 frame: document.createElement('div'),
@@ -154,7 +158,7 @@
                 panel.init();
                 panel.status = 'visible';
                 panel.frame.style.visibility = 'visible';
-                panel.frame.style.z-index = ++game.panel.largestZ;
+                panel.frame.style.zIndex = ++game.panels.largestZ;
             }
             function panelOff (panel) {
                 panel.status = 'off';
