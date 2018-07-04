@@ -3,40 +3,75 @@
     <head>
         <meta charset="utf-8">
         <title>Ear Training Game</title>
+        <style type="text/css">
+            canvas {
+                border: 1px solid #d3d3d3;
+                background-color: #f1f1f1;
+            }
+            .panel-frame {
+                position: absolute;
+            }
+        </style>
     </head>
-    <body>
+    <body onload='game.start()'>
         <script type="text/javascript">
 
+            const defaultInterval = 40;     // measured in milliseconds (FPS:25)
+            const defaultCanvasWidth = 800;
+            const defaultCanvasHeight = 600;
+
             var game = {
-                width: 800,
-                height: 600,
-                framesIntervalTime: 40,        //measured in ms (fps:25)
-                scene: {
+                canvas: document.createElement('canvas'),
+                start: function () {
+                    this.canvas.width = defaultCanvasWidth;
+                    this.canvas.height = defaultCanvasHeight;
+                    this.context = this.canvas.getContext('2d');
+                    document.body.appendChild(this.canvas);
+                    this.interval = setInterval(gameUpdate, defaultInterval);
+                },
+                clear: function () {
+                    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                },
+                scenes: {
                     children: [],
                     add: function (newScene) {
                         this.children.push(newScene);
                     },
-                    getScene: function (sceneName) {
-                        return this.children.find( function (elem) {
-                            return elem.name == sceneName;
-                        } );
+                    get: function (sceneName) {
+                        return getFromChildren(sceneName, this.children);
                     },
                     start: function (sceneName) {
-                        sceneStart( this.getScene(sceneName) );
+                        sceneStart( this.get(sceneName) );
                     },
                     stop: function (sceneName) {
-                        sceneStop( this.getScene(sceneName) );
+                        sceneStop( this.get(sceneName) );
                     },
                     pause: function (sceneName) {
-                        scenePause( this.getScene(sceneName) );
+                        scenePause( this.get(sceneName) );
                     },
                     wake: function (sceneName) {
-                        sceneWake( this.getScene(sceneName) );
+                        sceneWake( this.get(sceneName) );
+                    }
+                },
+                panels: {
+                    children: [],
+                    largestZ: 10,
+                    add: function (newPanel) {
+                        this.children.push(newPanel);
+                    },
+                    get: function (panelName) {
+                        return getFromChildren(panelName, this.children);
+                    },
+                    on: function (panelName) {
+                        panelOn( this.get(panelName) );
+                    },
+                    off: function (panelName) {
+                        panelOff( this.get(panelName) );
                     }
                 }
             };
 
-            game.scene.add( {
+            game.scenes.add( {
                 name: 'Menu',
                 status: 'stopped',
                 preload: function () {
@@ -50,7 +85,7 @@
                 }
             } );
 
-            game.scene.add( {
+            game.scenes.add( {
                 name: 'Game',
                 status: 'stopped',
                 preload: function () {
@@ -64,20 +99,31 @@
                 }
             } );
 
-            run();
-            function run () {
-                game.scene.start('Menu');
-
-                var looping = true;
-                while (looping) {
-                    for (let scene of game.scene.children) {
-                        if (scene.status == 'running') {
-                            scene.update();
-                        }
-                    }
-
-                    sleep(framesIntervalTime);
+            game.panel.add( {
+                name: 'Menu',
+                status: 'off',
+                frame: document.createElement('div'),
+                init: function () {
+                    this.frame.class = 'panel-frame';
+                    this.frame.width = game.canvas.width;
+                    this.frame.height = game.canvas.height;
                 }
+            } );
+
+
+            function gameUpdate () {
+                for (let scene of game.scenes.children) {
+                    if (scene.status == 'running') {
+                        scene.update();
+                    }
+                }
+            }
+
+
+            function getFromChildren(name, children) {
+                return children.find( function (elem) {
+                    return elem.name == name;
+                } );
             }
 
             function sceneStart (scene) {
@@ -104,12 +150,16 @@
                     console.log('[ERROR] ' + scene.name + ' scene not paused');
                 }
             }
-
-            function sleep (milliseconds) {
-                var start = new Date().getTime();
-                while(true) {
-                    if ( (new Date().getTime() - start) > milliseconds ) { break; }
-                }
+            function panelOn (panel) {
+                panel.init();
+                panel.status = 'visible';
+                panel.frame.style.visibility = 'visible';
+                panel.frame.style.z-index = ++game.panel.largestZ;
+            }
+            function panelOff (panel) {
+                panel.status = 'off';
+                panel.frame.style.visibility = 'hidden';
+                panel.frame.remove();
             }
         </script>
     </body>
