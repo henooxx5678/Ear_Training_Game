@@ -11,6 +11,9 @@
             .panel-frame {
                 position: absolute;
             }
+            .menu-button {
+                border: 1px solid #000000;
+            }
         </style>
     </head>
     <body onload='game.start()'>
@@ -19,6 +22,9 @@
             const defaultInterval = 40;     // measured in milliseconds (FPS:25)
             const defaultCanvasWidth = 800;
             const defaultCanvasHeight = 600;
+            const menuButtons = ['New Game', 'Load Game', 'Selet Level', 'Options'];
+            const gamePausedButtons = ['Resume', 'Restart', 'Save Game', 'Load Game', 'Options', 'Quit Game'];
+            const instruments = ['keyboard', 'piano'];
 
             var game = {
                 canvas: document.createElement('canvas'),
@@ -79,7 +85,7 @@
                 name: 'Menu',
                 status: 'stopped',
                 preload: function () {
-                    
+
                 },
                 create: function () {
                     game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
@@ -106,11 +112,23 @@
             game.panels.add( {
                 name: 'Menu',
                 status: 'off',
-                frame: document.createElement('div'),
-                init: function () {
+                frame: document.createElement('div'),,
+                component: {},
+                preload: function () {
+
+                }
+                create: function () {
                     this.frame.class = 'panel-frame';
                     this.frame.width = game.canvas.width;
                     this.frame.height = game.canvas.height;
+
+                    for (let i = 0; i < menuButtons.length; i++) {
+                        this.component[ 'button' + i ] = document.createElement('button');
+                        this.component[ 'button' + i ].class = 'menu-button';
+                        this.component[ 'button' + i ].text = menuButtons[i];
+                        this.frame.appendChild( this.component[ 'button' + i ] );
+                    }
+
                 }
             } );
 
@@ -155,7 +173,8 @@
                 }
             }
             function panelOn (panel) {
-                panel.init();
+                panel.preload();
+                panel.create();
                 panel.status = 'visible';
                 panel.frame.style.visibility = 'visible';
                 panel.frame.style.zIndex = ++game.panels.largestZ;
