@@ -12,6 +12,8 @@
                 position: absolute;
             }
             .menu-button {
+                width: 100px;
+                height: 30px;
                 border: 1px solid #000000;
             }
         </style>
@@ -31,12 +33,39 @@
                 start: function () {
                     this.canvas.width = defaultCanvasWidth;
                     this.canvas.height = defaultCanvasHeight;
-                    this.context = this.canvas.getContext('2d');
+                    this.ctx = this.canvas.getContext('2d');
+                    this.canvas.onmousemove = function (e) {
+                        let rect = game.canvas.getBoundingClientRect();
+                        game.mousePos.x = e.clientX - rect.left;
+                        game.mousePos.y = e.clientY - rect.top;
+                        // console.log(game.mousePos.x, game.mousePos.y);
+                    };
+                    this.canvas.onclick = function (e) {
+                        game.input.mouseClick = true;
+                        // console.log('mouse click');
+                    };
+                    document.onmousedown = function (e) {
+                        game.input.mouseDown = true;
+                        // console.log('mouse down');
+                    };
+                    document.onmouseup = function (e) {
+                        game.input.mouseDown = false;
+                        // console.log('mouse up');
+                    };
+                    window.onkeydown = function (e) {
+                        game.input.key[e.keyCode] = true;
+                    };
+                    window.onkeyup = function (e) {
+                        game.input.key[e.keyCode] = false;
+                    };
                     document.body.appendChild(this.canvas);
+
+                    game.scenes.start('Menu');
+
                     this.interval = setInterval(gameUpdate, defaultInterval);
                 },
                 clear: function () {
-                    this.context.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 },
                 scenes: {
                     children: [],
@@ -78,17 +107,26 @@
                 loaded: {
                     image: {},
                     sprite: {}
+                },
+                mousePos: {
+                    x: null,
+                    y: null
+                },
+                input: {
+                    mouseClick: false,
+                    mouseDown: false,
+                    keyDown: []
                 }
             };
 
             game.scenes.add( {
                 name: 'Menu',
-                status: 'stopped',
+                status: 'stopped',          // stopped, running, paused
                 preload: function () {
-
+                    game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
                 },
                 create: function () {
-                    game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
+
                 },
                 update: function () {
 
@@ -105,29 +143,6 @@
 
                 },
                 update: function () {
-
-                }
-            } );
-
-            game.panels.add( {
-                name: 'Menu',
-                status: 'off',
-                frame: document.createElement('div'),,
-                component: {},
-                preload: function () {
-
-                }
-                create: function () {
-                    this.frame.class = 'panel-frame';
-                    this.frame.width = game.canvas.width;
-                    this.frame.height = game.canvas.height;
-
-                    for (let i = 0; i < menuButtons.length; i++) {
-                        this.component[ 'button' + i ] = document.createElement('button');
-                        this.component[ 'button' + i ].class = 'menu-button';
-                        this.component[ 'button' + i ].text = menuButtons[i];
-                        this.frame.appendChild( this.component[ 'button' + i ] );
-                    }
 
                 }
             } );
@@ -175,14 +190,10 @@
             function panelOn (panel) {
                 panel.preload();
                 panel.create();
-                panel.status = 'visible';
-                panel.frame.style.visibility = 'visible';
-                panel.frame.style.zIndex = ++game.panels.largestZ;
+                panel.status = 'on';
             }
             function panelOff (panel) {
                 panel.status = 'off';
-                panel.frame.style.visibility = 'hidden';
-                panel.frame.remove();
             }
         </script>
     </body>
