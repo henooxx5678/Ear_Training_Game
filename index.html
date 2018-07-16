@@ -124,6 +124,10 @@
                 status: 'stopped',          // stopped, running, paused
                 preload: function () {
                     game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
+                    game.loaded.image['menu-buttons'] = new Image(303, 188);
+                    game.loaded.image['menu-buttons'].src = 'assets/img/menu-buttons.png';
+                    game.loaded.image['menu-buttons-hover'] = new Image(303, 188);
+                    game.loaded.image['menu-buttons-hover'].src = 'assets/img/menu-buttons-hover.png';
                 },
                 create: function () {
 
