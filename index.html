@@ -53,19 +53,16 @@
                         // console.log('mouse up');
                     };
                     window.onkeydown = function (e) {
-                        game.input.key[e.keyCode] = true;
+                        game.input.keyDown[e.keyCode] = true;
                     };
                     window.onkeyup = function (e) {
-                        game.input.key[e.keyCode] = false;
+                        game.input.keyDown[e.keyCode] = false;
                     };
                     document.body.appendChild(this.canvas);
 
                     game.scenes.start('Menu');
 
                     this.interval = setInterval(gameUpdate, defaultInterval);
-                },
-                clear: function () {
-                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 },
                 scenes: {
                     children: [],
@@ -104,9 +101,32 @@
                         panelOff( this.get(panelName) );
                     }
                 },
+                loadImage: function (name, source) {
+                    let img = new Image();
+                    img.src = source;
+                    this.loaded.images[name] = img;
+                },
+                loadSprite: function (name, width, height, source) {
+                    let img = new Image();
+                    img.src = source;
+                    this.loaded.sprites[name] = new Sprite(img, width, height);
+                },
+                getImage: function (name) {
+                    return this.loaded.images[name];
+                },
+                getSprite: function (name) {
+                    return this.loaded.sprites[name];
+                },
+                clearScreen: function () {
+                    this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+                },
+                clearLoaded: function () {
+                    this.loaded = { image:{}, sprite:{}, data:{} };
+                },
                 loaded: {
-                    image: {},
-                    sprite: {}
+                    images: {},
+                    sprites: {},
+                    data: {}
                 },
                 mousePos: {
                     x: null,
@@ -124,16 +144,67 @@
                 status: 'stopped',          // stopped, running, paused
                 preload: function () {
                     game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
-                    game.loaded.image['menu-buttons'] = new Image(303, 188);
-                    game.loaded.image['menu-buttons'].src = 'assets/img/menu-buttons.png';
-                    game.loaded.image['menu-buttons-hover'] = new Image(303, 188);
-                    game.loaded.image['menu-buttons-hover'].src = 'assets/img/menu-buttons-hover.png';
+                    game.loadImage('menu-buttons', 'assets/img/menu-buttons.png');
+                    game.loadImage('menu-buttons-hover', 'assets/img/menu-buttons-hover.png');
                 },
                 create: function () {
-
+                    let buttonSize = {width: 303, height: 47};
+                    let buttonsTopPos = {x: 252, y: 280};
+                    let intervalY = 65;
+                    let amount = 4;
+                    let button = [];
+                    for (let i = 0; i < amount; i++) {
+                        button[i] = {
+                            image: game.getImage('menu-buttons'),
+                            imageHover: game.getImage('menu-buttons-hover'),
+                            width: 303,
+                            height: 47,
+                            sx: 0,
+                            sy: i * buttonSize.height,
+                            dx: buttonsTopPos.x,
+                            dy: buttonsTopPos.y + (i * intervalY)
+                        };
+                        button[i].drawArgs = [
+                            button[i].image,
+                            button[i].sx,
+                            button[i].sy,
+                            button[i].width,
+                            button[i].height,
+                            button[i].dx,
+                            button[i].dy,
+                            button[i].width,
+                            button[i].height
+                        ];
+                        button[i].drawHoverArgs = [
+                            button[i].imageHover,
+                            button[i].sx,
+                            button[i].sy,
+                            button[i].width,
+                            button[i].height,
+                            button[i].dx,
+                            button[i].dy,
+                            button[i].width,
+                            button[i].height
+                        ];
+                        button[i].isHoverArgs = [
+                            'rect',
+                            button[i].dx,
+                            button[i].dy,
+                            button[i].width,
+                            button[i].height
+                        ];
+                    }
+                    game.loaded.data.menuButton = button;
                 },
                 update: function () {
-
+                    let mb = game.loaded.data.menuButton;
+                    for (let i = 0; i < mb.length; i++) {
+                        if (isHover.apply(null, mb[i].isHoverArgs)) {
+                            game.ctx.drawImage.apply(game.ctx, mb[i].drawHoverArgs);
+                        } else {
+                            game.ctx.drawImage.apply(game.ctx, mb[i].drawArgs);
+                        }
+                    }
                 }
             } );
 
@@ -161,11 +232,47 @@
             }
 
 
-            function getFromChildren(name, children) {
+            // ========= Tools function ==========
+
+            function getFromChildren (name, children) {
                 return children.find( function (elem) {
                     return elem.name == name;
                 } );
             }
+            function isHover (shape, ...args) {
+                let pos = game.mousePos;
+                let x = args[0];
+                let y = args[1];
+                if (shape == 'rect') {             // [x, y, width, height]
+                    let testtest = x + args[2];
+                    let y2 = y + args[3];
+                    if (pos.x >= x && pos.x <= testtest && pos.y >= y && pos.y <= y2) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+                else if (shape == 'square') {     // [x, y, length_of_a_side]
+                    let testtest = x + args[2];
+                    let y2 = y + args[2];
+                    if (pos.x >= x && pos.x <= testtest && pos.y >= y && pos.y <= y2) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+                else if (shape == 'curcle') {     // [x, y, radius]
+                    let r = args[2];
+                    let distanceSq = Math.pow(pos.x - x, 2) + Math.pow(pos.y - y, 2);
+                    if (distamceSq < Math.pow(r, 2)) {
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            }
+
+            // ===================================
 
             function sceneStart (scene) {
                 console.log(scene.name + ' scene preloading..');
@@ -198,6 +305,13 @@
             }
             function panelOff (panel) {
                 panel.status = 'off';
+            }
+
+            function Sprite (image, width, height) {
+                this.image = image;
+                this.width = width;
+                this.height = height;
+                this.amount = [ image.width/width, image.height/height ];
             }
         </script>
     </body>
