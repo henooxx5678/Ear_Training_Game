@@ -8,14 +8,6 @@
                 border: 1px solid #d3d3d3;
                 background-color: #f1f1f1;
             }
-            .panel-frame {
-                position: absolute;
-            }
-            .menu-button {
-                width: 100px;
-                height: 30px;
-                border: 1px solid #000000;
-            }
         </style>
     </head>
     <body onload='game.start()'>
@@ -24,7 +16,7 @@
             const defaultInterval = 40;     // measured in milliseconds (FPS:25)
             const defaultCanvasWidth = 800;
             const defaultCanvasHeight = 600;
-            const menuButtons = ['New Game', 'Load Game', 'Selet Level', 'Options'];
+            const menuButtonsLabel = ['New Game', 'Load Game', 'Selet Level', 'Options'];
             const gamePausedButtons = ['Resume', 'Restart', 'Save Game', 'Load Game', 'Options', 'Quit Game'];
             const instruments = ['keyboard', 'piano'];
 
@@ -143,7 +135,7 @@
                 name: 'Menu',
                 status: 'stopped',          // stopped, running, paused
                 preload: function () {
-                    game.canvas.style.backgroundImage = 'url(assets/img/menu-page.jpg)';
+                    game.canvas.style.backgroundImage = 'url(assets/img/menu-scene.jpg)';
                     game.loadImage('menu-buttons', 'assets/img/menu-buttons.png');
                     game.loadImage('menu-buttons-hover', 'assets/img/menu-buttons-hover.png');
                 },
@@ -155,6 +147,7 @@
                     let button = [];
                     for (let i = 0; i < amount; i++) {
                         button[i] = {
+                            name: menuButtonsLabel[i],
                             image: game.getImage('menu-buttons'),
                             imageHover: game.getImage('menu-buttons-hover'),
                             width: 303,
@@ -197,13 +190,22 @@
                     game.loaded.data.menuButton = button;
                 },
                 update: function () {
-                    let mb = game.loaded.data.menuButton;
-                    for (let i = 0; i < mb.length; i++) {
-                        if (isHover.apply(null, mb[i].isHoverArgs)) {
-                            game.ctx.drawImage.apply(game.ctx, mb[i].drawHoverArgs);
+                    game.clearScreen();
+                    let menuButton = game.loaded.data.menuButton;
+                    let onClick = false;
+                    for (let i = 0; i < menuButton.length; i++) {
+                        if (isHover.apply(null, menuButton[i].isHoverArgs)) {
+                            game.ctx.drawImage.apply(game.ctx, menuButton[i].drawHoverArgs);
+                            if (game.input.mouseClick) {
+                                game.input.mouseClick = false;
+                                onClick = menuButton[i].name;
+                            }
                         } else {
-                            game.ctx.drawImage.apply(game.ctx, mb[i].drawArgs);
+                            game.ctx.drawImage.apply(game.ctx, menuButton[i].drawArgs);
                         }
+                    }
+                    if (onClick) {
+                        menuButtonClick(onClick);
                     }
                 }
             } );
@@ -228,6 +230,21 @@
                     if (scene.status == 'running') {
                         scene.update();
                     }
+                }
+            }
+
+            function menuButtonClick (name) {
+                console.log('\"' + name + '\"' + ' clicked');
+                if (name == 'New Game') {
+                    game.scenes.stop('Menu');
+                    game.scenes.start('Game');
+                    return true;            // break loop or not
+                } else if (name == 'Load Game') {
+
+                } else if (name == 'Select Level') {
+
+                } else if (name == 'Options') {
+
                 }
             }
 
@@ -285,6 +302,9 @@
             function sceneStop (scene) {
                 console.log(scene.name + ' scene stopped');
                 scene.status = 'stopped';
+                game.clearScreen();
+                game.clearLoaded();
+                game.canvas.style.backgroundImage = '';
             }
             function scenePause (scene) {
                 console.log(scene.name + ' scene paused');
@@ -298,6 +318,7 @@
                     console.log('[ERROR] ' + scene.name + ' scene not paused');
                 }
             }
+
             function panelOn (panel) {
                 panel.preload();
                 panel.create();
