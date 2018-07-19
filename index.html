@@ -10,21 +10,80 @@
             }
         </style>
     </head>
-    <body onload='game.start()'>
+    <body onload='gameStart()'>
         <script type="text/javascript">
 
-            const defaultInterval = 40;     // measured in milliseconds (FPS:25)
-            const defaultCanvasWidth = 800;
-            const defaultCanvasHeight = 600;
-            const menuButtonsLabel = ['New Game', 'Load Game', 'Selet Level', 'Options'];
-            const gamePausedButtons = ['Resume', 'Restart', 'Save Game', 'Load Game', 'Options', 'Quit Game'];
-            const instruments = ['keyboard', 'piano'];
+            const config = {
+                interval: 40,       // measured in milliseconds (FPS:25)
+                width: 800,
+                height: 600,
+                instruments: [
+                    'keyboard',
+                    'piano'
+                ],
+                menuScene: {
+                    buttons: {
+                        width: 303,
+                        height: 47,
+                        leftTop: { x: 252, y: 280 },
+                        intervalY: 65,
+                        names: [
+                            'New Game',
+                            'Load Game',
+                            'Select Level',
+                            'Options'
+                        ]
+                    }
+                },
+                gameScene: {
+                    enemy: {
+                        hpBar: {
+                            color: ['#00cf00', 'red'],       // HP Remained, HP Lost
+                            filter: ['drop-shadow(1px 2px 2px #333333)', 'none'],
+                            rect: {
+                                x: 200,
+                                y: 10,
+                                width: 400,
+                                height: 20
+                            }
+                        }
+                    },
+                    player: {
+                        hpBar: {
+                            color: ['#00cf00', 'red'],       // HP Remained, HP Lost
+                            filter: ['drop-shadow(1px 2px 2px #333333)', 'none'],
+                            rect: {
+                                x: 200,
+                                y: 570,
+                                width: 400,
+                                height: 20
+                            }
+                        }
+                    },
+                    pausedPanel: {
+                        buttons: {
+                            width: 0,
+                            height: 0,
+                            leftTop: {},
+                            intervalY: 0,
+                            names: [
+                                'Resume',
+                                'Restart',
+                                'Save Game',
+                                'Load Game',
+                                'Options',
+                                'Quit Game'
+                            ]
+                        }
+                    }
+                }
+            }
 
             var game = {
                 canvas: document.createElement('canvas'),
                 start: function () {
-                    this.canvas.width = defaultCanvasWidth;
-                    this.canvas.height = defaultCanvasHeight;
+                    this.canvas.width = config.width;
+                    this.canvas.height = config.height;
                     this.ctx = this.canvas.getContext('2d');
                     this.canvas.onmousemove = function (e) {
                         let rect = game.canvas.getBoundingClientRect();
@@ -54,7 +113,7 @@
 
                     game.scenes.start('Menu');
 
-                    this.interval = setInterval(gameUpdate, defaultInterval);
+                    this.interval = setInterval(gameUpdate, config.interval);
                 },
                 scenes: {
                     children: [],
@@ -77,22 +136,6 @@
                         sceneWake( this.get(sceneName) );
                     }
                 },
-                panels: {
-                    children: [],
-                    largestZ: 10,
-                    add: function (newPanel) {
-                        this.children.push(newPanel);
-                    },
-                    get: function (panelName) {
-                        return getFromChildren(panelName, this.children);
-                    },
-                    on: function (panelName) {
-                        panelOn( this.get(panelName) );
-                    },
-                    off: function (panelName) {
-                        panelOff( this.get(panelName) );
-                    }
-                },
                 loadImage: function (name, source) {
                     let img = new Image();
                     img.src = source;
@@ -113,7 +156,7 @@
                     this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
                 },
                 clearLoaded: function () {
-                    this.loaded = { image:{}, sprite:{}, data:{} };
+                    this.loaded = { images:{}, sprites:{}, data:{} };
                 },
                 loaded: {
                     images: {},
@@ -134,28 +177,26 @@
             game.scenes.add( {
                 name: 'Menu',
                 status: 'stopped',          // stopped, running, paused
+                page: 'beginning',
                 preload: function () {
-                    game.canvas.style.backgroundImage = 'url(assets/img/menu-scene.jpg)';
+                    game.loadImage('scene-bg', 'assets/img/menu-scene.jpg');
                     game.loadImage('menu-buttons', 'assets/img/menu-buttons.png');
                     game.loadImage('menu-buttons-hover', 'assets/img/menu-buttons-hover.png');
                 },
                 create: function () {
-                    let buttonSize = {width: 303, height: 47};
-                    let buttonsTopPos = {x: 252, y: 280};
-                    let intervalY = 65;
-                    let amount = 4;
+                    let menuButtons = config.menuScene.buttons;
                     let button = [];
-                    for (let i = 0; i < amount; i++) {
+                    for (let i = 0; i < menuButtons.names.length; i++) {
                         button[i] = {
-                            name: menuButtonsLabel[i],
+                            name: config.menuScene.buttons.names[i],
                             image: game.getImage('menu-buttons'),
                             imageHover: game.getImage('menu-buttons-hover'),
-                            width: 303,
-                            height: 47,
+                            width: menuButtons.width,
+                            height: menuButtons.height,
                             sx: 0,
-                            sy: i * buttonSize.height,
-                            dx: buttonsTopPos.x,
-                            dy: buttonsTopPos.y + (i * intervalY)
+                            sy: i * menuButtons.height,
+                            dx: menuButtons.leftTop.x,
+                            dy: menuButtons.leftTop.y + (i * menuButtons.intervalY)
                         };
                         button[i].drawArgs = [
                             button[i].image,
@@ -190,22 +231,42 @@
                     game.loaded.data.menuButton = button;
                 },
                 update: function () {
-                    game.clearScreen();
+                    let bgImg = game.getImage('scene-bg');
                     let menuButton = game.loaded.data.menuButton;
                     let onClick = false;
-                    for (let i = 0; i < menuButton.length; i++) {
-                        if (isHover.apply(null, menuButton[i].isHoverArgs)) {
-                            game.ctx.drawImage.apply(game.ctx, menuButton[i].drawHoverArgs);
-                            if (game.input.mouseClick) {
-                                game.input.mouseClick = false;
-                                onClick = menuButton[i].name;
+
+                    game.clearScreen();
+                    if (this.page == 'beginning') {
+                        game.ctx.drawImage(bgImg, 0, 0);
+                        for (let i = 0; i < menuButton.length; i++) {
+                            if (isHover.apply(null, menuButton[i].isHoverArgs)) {
+                                game.ctx.drawImage.apply(game.ctx, menuButton[i].drawHoverArgs);
+                                if (game.input.mouseClick) {
+                                    game.input.mouseClick = false;
+                                    onClick = menuButton[i].name;
+                                }
+                            } else {
+                                game.ctx.drawImage.apply(game.ctx, menuButton[i].drawArgs);
                             }
-                        } else {
-                            game.ctx.drawImage.apply(game.ctx, menuButton[i].drawArgs);
+                        }
+                    } else {        // blur background
+                        game.ctx.filter = 'blur(5px)';
+                        game.ctx.drawImage(bgImg, 0, 0);
+                        game.ctx.filter = 'none';
+                        game.ctx.fillStyle = 'rgba(225,225,225,0.5)';
+                        game.ctx.fillRect(0, 0, bgImg.width, bgImg.height);
+                        if (this.page == 'load-game') {
+
+                        } else if (this.page == 'select-level') {
+
+                        } else if (this.page == 'options') {
+
                         }
                     }
+
+
                     if (onClick) {
-                        menuButtonClick(onClick);
+                        buttonClick(this, onClick);
                     }
                 }
             } );
@@ -213,18 +274,78 @@
             game.scenes.add( {
                 name: 'Game',
                 status: 'stopped',
+                panels: new Panels(),
                 preload: function () {
-                    game.canvas.style.backgroundImage = 'url(assets/img/game-scene.jpg)';
+                    game.loadImage('scene-bg', 'assets/img/game-scene.jpg');
                 },
                 create: function () {
+                    let enemy = config.gameScene.enemy;
+                    let player = config.gameScene.player;
 
+                    game.loaded.data.enemy = {
+                        hp: 100,
+                        maxHp: 100,
+                        hpBar: {
+                            color: config.gameScene.enemy.hpBar.color[0],
+                            filter: config.gameScene.enemy.hpBar.filter[0],
+                            rect: Object.assign({}, config.gameScene.enemy.hpBar.rect)
+                        },
+                        maxHpBar: {
+                            color: config.gameScene.enemy.hpBar.color[1],
+                            filter: config.gameScene.enemy.hpBar.filter[1],
+                            rect: Object.assign({}, config.gameScene.enemy.hpBar.rect)
+                        }
+                    };
+                    game.loaded.data.enemy.hpBar.rect.y -= 1;
+
+                    game.loaded.data.player = {
+                        hp: 100,
+                        maxHp: 100,
+                        hpBar: {
+                            color: config.gameScene.player.hpBar.color[0],
+                            filter: config.gameScene.player.hpBar.filter[0],
+                            rect: Object.assign({}, config.gameScene.player.hpBar.rect)
+                        },
+                        maxHpBar: {
+                            color: config.gameScene.player.hpBar.color[1],
+                            filter: config.gameScene.player.hpBar.filter[1],
+                            rect: Object.assign({}, config.gameScene.player.hpBar.rect)
+                        }
+                    };
+                    game.loaded.data.player.hpBar.rect.y -= 1;
                 },
                 update: function () {
+                    let enemy = game.loaded.data.enemy;
+                    let player = game.loaded.data.player;
 
+                    game.clearScreen();
+
+                    enemy.hpBar.rect.width = enemy.maxHpBar.rect.width * enemy.hp / enemy.maxHp;
+                    player.hpBar.rect.width = player.maxHpBar.rect.width * player.hp / player.maxHp;
+                    game.ctx.drawImage(game.getImage('scene-bg'), 0, 0);
+
+                    // Enemy's HP-bar
+                    game.ctx.fillStyle = enemy.maxHpBar.color;
+                    game.ctx.filter = enemy.maxHpBar.filter;
+                    game.ctx.fillRect.apply(game.ctx, Object.values(enemy.maxHpBar.rect));
+                    game.ctx.fillStyle = enemy.hpBar.color;
+                    game.ctx.filter = enemy.hpBar.filter;
+                    game.ctx.fillRect.apply(game.ctx, Object.values(enemy.hpBar.rect));
+                    // Player's HP-bar
+                    game.ctx.fillStyle = player.maxHpBar.color;
+                    game.ctx.filter = player.maxHpBar.filter;
+                    game.ctx.fillRect.apply(game.ctx, Object.values(player.maxHpBar.rect));
+                    game.ctx.fillStyle = player.hpBar.color;
+                    game.ctx.filter = player.hpBar.filter;
+                    game.ctx.fillRect.apply(game.ctx, Object.values(player.hpBar.rect));
+                    game.ctx.filter = 'none';
                 }
             } );
 
 
+            function gameStart () {
+                game.start();
+            }
             function gameUpdate () {
                 for (let scene of game.scenes.children) {
                     if (scene.status == 'running') {
@@ -233,17 +354,24 @@
                 }
             }
 
-            function menuButtonClick (name) {
+            function buttonClick (scene, name) {
                 console.log('\"' + name + '\"' + ' clicked');
-                if (name == 'New Game') {
-                    game.scenes.stop('Menu');
-                    game.scenes.start('Game');
-                    return true;            // break loop or not
-                } else if (name == 'Load Game') {
-
-                } else if (name == 'Select Level') {
-
-                } else if (name == 'Options') {
+                if (scene.name == 'Menu') {
+                    if (name == 'New Game') {
+                        game.scenes.stop('Menu');
+                        game.scenes.start('Game');
+                    }
+                    else if (name == 'Load Game') {
+                        scene.page = 'load-game';
+                    }
+                    else if (name == 'Select Level') {
+                        scene.page = 'select-level';
+                    }
+                    else if (name == 'Options') {
+                        scene.page = 'options';
+                    }
+                }
+                else if (name == 'Game') {
 
                 }
             }
@@ -319,13 +447,36 @@
                 }
             }
 
+            function panelsInit (panels) {
+                for (let panel of panels) {
+                    panel.preload();
+                    panel.create();
+                }
+            }
             function panelOn (panel) {
-                panel.preload();
-                panel.create();
                 panel.status = 'on';
             }
             function panelOff (panel) {
                 panel.status = 'off';
+            }
+
+            function Panels () {
+                this.children = [];
+                this.init = function () {
+                    panelsInit(this.children);
+                };
+                this.add = function (newPanel) {
+                    this.children.push(newPanel);
+                };
+                this.get = function (panelName) {
+                    return getFromChildren(panelName, this.children)
+                };
+                this.on = function (panelName) {
+                    panelOn(this.get(panelName));
+                };
+                this.off = function (panelName) {
+                    panelOff(this.get(panelName));
+                };
             }
 
             function Sprite (image, width, height) {
