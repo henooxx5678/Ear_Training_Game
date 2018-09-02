@@ -2,10 +2,18 @@ const config = {
     interval: 40,       // measured in milliseconds (FPS:25)
     width: 800,
     height: 600,
-    instruments: [
-        'keyboard',
-        'piano'
-    ],
+    instruments: {
+        'keyboard': {
+            notes: ['c4', 'a4']
+        }
+    },
+    settings: {
+        instName: 'keyboard',
+        player: {
+            atkTime: 2000,  //ms
+            atkChanceRate: 1
+        }
+    },
     levels: [
         { name: 'Test', locked: false },
         { name: 'Locked1', locked: true },
@@ -18,6 +26,7 @@ const config = {
         }
     }
 }
+
 config.scenes = {
     menu: {
         background: {
@@ -124,14 +133,13 @@ config.scenes = {
             keyboard: {
                 filter: { normal:'none' },
                 x: 17,
-                y: 404,
+                y: 371,
                 width: 766,
                 height: 158
             }
         }
     }
 };
-
 
 config.panels = {
     options: {

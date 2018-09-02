@@ -21,10 +21,15 @@ game.levels.add( {
                     height: 20
                 }
             }
-        } ]
+        } ],
+        get: function (theName) {
+            return getFromChildren(theName, this.children);
+        }
     } ],
     preload: function () {
         game.loadImage('enemy-bat', 'assets/img/enemies/bat.png');
+        game.loadAudio('enemy-bat-a4-lgt', 'assets/aud/enemies/bat-a4-lgt.mp3');
+        game.loadAudio('enemy-bat-a4-hvy', 'assets/aud/enemies/bat-a4-hvy.mp3');
     },
     create: function () {
         let data = game.loaded.data;
@@ -32,7 +37,11 @@ game.levels.add( {
 
         data.enemy = {
             index: 0,
-            children: []
+            children: [],
+            atkList: [],
+            add: function (newOne) {
+                this.children.push(newOne);
+            }
         };
         this.updateEnemy();
     },
@@ -41,72 +50,62 @@ game.levels.add( {
         let enemy = game.loaded.data.enemy;
         let player = game.loaded.data.player;
 
-        // Update HP-bar
-        for (let theEnemy of enemy.children) {
-            theEnemy.hpBar.rect.width = theEnemy.maxHpBar.width * theEnemy.hp / theEnemy.maxHp;
-        }
     },
     paint: function () {
         let data = game.loaded.data;
         let enemy = game.loaded.data.enemy;
 
-        for (let theEnemy of enemy.children) {
-            // Draw Enemy
-            game.ctx.filter = theEnemy.filter;
-            game.ctx.drawImage.apply(game.ctx, Object.values(theEnemy.drawArgs));
-            // Draw Enemy HP-bar
-            game.ctx.filter = theEnemy.maxHpBar.filter;
-            game.ctx.fillStyle = theEnemy.maxHpBar.color;
-            game.ctx.fillRect.apply(game.ctx, Object.values(theEnemy.maxHpBar.rect));
-            game.ctx.filter = theEnemy.hpBar.filter;
-            game.ctx.fillStyle = theEnemy.hpBar.color;
-            game.ctx.fillRect.apply(game.ctx, Object.values(theEnemy.hpBar.rect));
-        }
-
         game.ctx.filter = 'none';
     },
     updateEnemy: function () {
         let data = game.loaded.data;
-        
+
         for (let theEnemy of this.enemies[data.enemy.index].children) {
-            data.enemy.children.push( {
-                name: theEnemy.name,
-                hp: theEnemy.maxHp,
-                maxHp: theEnemy.maxHp,
-                filter: theEnemy.filter['normal'],
-                image: game.getImage('enemy-' + theEnemy.name),
-                x: theEnemy.x,
-                y: theEnemy.y,
-                width: theEnemy.width,
-                height: theEnemy.height,
-                hpBar: {
-                    color: theEnemy.hpBar.color['remained'],
-                    filter: theEnemy.hpBar.filter['remained'],
-                    rect: Object.assign({}, theEnemy.hpBar.rect)
-                },
-                maxHpBar: {
-                    color: theEnemy.hpBar.color['lost'],
-                    filter: theEnemy.hpBar.filter['lost'],
-                    rect: Object.assign({}, theEnemy.hpBar.rect)
-                },
-                generateArgs: function () {
-                    this.drawArgs = {
-                        image: this.image,
-                        sx: 0,
-                        sy: 0,
-                        sWidth: this.width,
-                        sHeight: this.height,
-                        dx: this.x,
-                        dy: this.y,
-                        dWidth: this.width,
-                        dHeight: this.height
-                    }
-                }
-            } );
-        }
-        for (let theEnemy of data.enemy.children) {
-            theEnemy.hpBar.rect.y -= 1;
-            theEnemy.generateArgs();
+            let theImage = game.getImage('enemy-' + theEnemy.name);
+            let newEnemy = new Sprite('enemy', theImage, theEnemy.width, theEnemy.height).init();
+
+            newEnemy.name = theEnemy.name;
+            newEnemy.hp = theEnemy.maxHp;
+            newEnemy.maxHp = theEnemy.maxHp;
+            newEnemy.filter = theEnemy.filter['normal'];
+            newEnemy.x = theEnemy.x;
+            newEnemy.y = theEnemy.y;
+            newEnemy.hpBar = {
+                color: theEnemy.hpBar.color['remained'],
+                filter: theEnemy.hpBar.filter['remained'],
+                rect: Object.assign({}, theEnemy.hpBar.rect)
+            };
+            newEnemy.maxHpBar = {
+                color: theEnemy.hpBar.color['lost'],
+                filter: theEnemy.hpBar.filter['lost'],
+                rect: Object.assign({}, theEnemy.hpBar.rect)
+            };
+            newEnemy.actions = theEnemy.getActions();
+            newEnemy.actions.parent = newEnemy;
+            newEnemy.underAtk = null;
+            newEnemy.getHit = function (damage) {
+                newEnemy.hp -= damage;
+            };
+            newEnemy.generateArgs = function () {
+                newEnemy.drawArgs = {
+                    image: newEnemy.image,
+                    sx: 0,
+                    sy: 0,
+                    sWidth: newEnemy.width,
+                    sHeight: newEnemy.height,
+                    dx: newEnemy.x,
+                    dy: newEnemy.y,
+                    dWidth: newEnemy.width,
+                    dHeight: newEnemy.height
+                };
+            };
+            newEnemy.init = function () {
+                newEnemy.generateArgs();
+                newEnemy.hpBar.rect.y -= 1;
+                delete newEnemy.init;
+            }();
+
+            data.enemy.add(newEnemy);
         }
     }
 } );

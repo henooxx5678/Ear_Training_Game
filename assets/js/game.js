@@ -24,9 +24,11 @@ var game = {
         };
         window.onkeydown = function (e) {
             game.input.keyDown[e.keyCode] = true;
+            game.input.keyPress[e.keyCode] = true;
         };
         window.onkeyup = function (e) {
             game.input.keyDown[e.keyCode] = false;
+            game.input.keyRelease[e.keyCode] = true;
         };
         document.body.appendChild(this.canvas);
 
@@ -36,33 +38,33 @@ var game = {
     },
     scenes: {
         children: [],
-        add: function (newScene) {
-            this.children.push(newScene);
+        add: function (newOne) {
+            this.children.push(newOne);
         },
-        get: function (sceneName) {
-            return getFromChildren(sceneName, this.children);
+        get: function (theName) {
+            return getFromChildren(theName, this.children);
         },
-        start: function (sceneName) {
-            sceneStart( this.get(sceneName) );
+        start: function (theName) {
+            sceneStart( this.get(theName) );
         },
-        stop: function (sceneName) {
-            sceneStop( this.get(sceneName) );
+        stop: function (theName) {
+            sceneStop( this.get(theName) );
         },
-        pause: function (sceneName) {
-            scenePause( this.get(sceneName) );
+        pause: function (theName) {
+            scenePause( this.get(theName) );
         },
-        wake: function (sceneName) {
-            sceneWake( this.get(sceneName) );
+        wake: function (theName) {
+            sceneWake( this.get(theName) );
         }
     },
     panels: new Panels(),
     levels: {
         children: [],
-        add: function (newLevel) {
-            this.children.push(newLevel);
+        add: function (newOne) {
+            this.children.push(newOne);
         },
-        get: function (levelName) {
-            return getFromChildren(levelName, this.children);
+        get: function (theName) {
+            return getFromChildren(theName, this.children);
         },
     },
     loadImage: function (name, source) {
@@ -75,24 +77,38 @@ var game = {
         img.src = source;
         this.loaded.sprites[name] = new Sprite(img, width, height);
     },
+    loadAudio: function (name, source) {
+        this.loaded.audio[name] = new Audio(source);
+    },
     getImage: function (name) {
         return this.loaded.images[name];
     },
     getSprite: function (name) {
         return this.loaded.sprites[name];
     },
+    getAudio: function (name) {
+        return this.loaded.audio[name];
+    },
     clearScreen: function () {
         this.ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
     },
     clearLoaded: function () {
-        this.loaded = { images:{}, sprites:{}, data:{}, sceneSwitching: false };
+        this.loaded = {
+            images: {},
+            sprites: {},
+            audio: {},
+            data: {},
+            sceneSwitching: false
+        };
     },
     loaded: {
         images: {},
         sprites: {},
+        audio: {},
         data: {},
         sceneSwitching: false
     },
+    settings: JSON.parse( JSON.stringify(config.settings) ),
     mousePos: {
         x: null,
         y: null
@@ -100,7 +116,9 @@ var game = {
     input: {
         mouseClick: false,
         mouseDown: false,
-        keyDown: []
+        keyDown: [],
+        keyPress: [],
+        keyRelease: []
     }
 };
 
@@ -347,10 +365,16 @@ game.scenes.add( {
         game.loadImage('inst-keyboard', 'assets/img/inst/keyboard.png');
         game.loadImage('enemy-bat', 'assets/img/enemies/bat.png');
         game.loaded.data.currentLevel.preload();
+        let instName = game.settings.instName;
+        for (let theNote of config.instruments[instName].notes) {
+            game.loadAudio('inst-'+instName+'-'+theNote, 'assets/aud/inst/'+instName+'/'+theNote+'.mp3');
+        }
     },
     create: function () {
         let data = game.loaded.data;
         let sceneConfig = config.scenes.game;
+
+        data.currentLevel.create();
 
         data.background = {
             filter: sceneConfig.background.filter['normal'],
@@ -493,6 +517,8 @@ game.scenes.add( {
         data.player = {
             hp: 100,
             maxHp: 100,
+            atkChance: data.enemy.children.length * game.settings.player.atkChanceRate,
+            atkChanceCounter: 0,
             hpBar: {
                 color: sceneConfig.player.hpBar.color['remained'],
                 filter: sceneConfig.player.hpBar.filter['remained'],
@@ -503,22 +529,27 @@ game.scenes.add( {
                 filter: sceneConfig.player.hpBar.filter['lost'],
                 rect: Object.assign({}, sceneConfig.player.hpBar.rect)
             },
-            instrument: 'keyboard'
+            getHit: function (damage) {
+                this.hp -= damage;
+            }
         };
         data.player.hpBar.rect.y -= 1;
 
-        data.instruments = {
-            keyboard: {
-                filter: sceneConfig.instruments.keyboard.filter['normal'],
-                image: game.getImage('inst-keyboard'),
-                x: sceneConfig.instruments.keyboard.x,
-                y: sceneConfig.instruments.keyboard.y,
-                width: sceneConfig.instruments.keyboard.width,
-                height: sceneConfig.instruments.keyboard.height
-            }
-        };
-        for (let key in data.instruments) {
-            data.instruments[key].generateArgs = function () {
+        data.inst = {
+            name: game.settings.instName,
+            filter: sceneConfig.instruments[game.settings.instName].filter['normal'],
+            image: game.getImage('inst-' + game.settings.instName),
+            x: sceneConfig.instruments[game.settings.instName].x,
+            y: sceneConfig.instruments[game.settings.instName].y,
+            width: sceneConfig.instruments[game.settings.instName].width,
+            height: sceneConfig.instruments[game.settings.instName].height,
+            notes: {
+                'a4': game.getAudio('inst'+game.settings.instName+'-a4'),
+                'c4': game.getAudio('inst'+game.settings.instName+'-c4')
+            },
+            playable: false,
+            played: null,
+            generateArgs: function () {
                 this.drawArgs = {
                     image: this.image,
                     sx: 0,
@@ -530,17 +561,21 @@ game.scenes.add( {
                     dWidth: this.width,
                     dHeight: this.height
                 }
-            };
-            data.instruments[key].generateArgs();
-        }
+            },
+            init: function () {
+                this.generateArgs();
+                delete this.init;
+                return this;
+            }
+        }.init();
 
-        data.currentLevel.create();
     },
     update: function () {
         let data = game.loaded.data;
-        let pauseButton = game.loaded.data.pauseButton;
-        let enemy = game.loaded.data.enemy;
-        let player = game.loaded.data.player;
+        let pauseButton = data.pauseButton;
+        let enemy = data.enemy;
+        let player = data.player;
+        let inst = data.inst;
 
 
         // Paused-button
@@ -551,19 +586,99 @@ game.scenes.add( {
             }
         }
 
+        data.currentLevel.update();
+
+        // Player Instrument playing
+        if (inst.playable) {
+            if (game.input.keyPress[65]) {      // key: A
+                inst.played = 'a4';
+                inst.notes['a4'].play();
+            }
+            if (game.input.keyPress[67]) {      // key: C
+                inst.played = 'c4';
+                inst.notes['c4'].play();
+            }
+        }
+
+        if (inst.played != null && enemy.atkList.length > 0) {
+            if (inst.played == enemy.atkList[0].note) {
+                console.log('[PLAYER] '+enemy.atkList[0].parent.parent.name+"'s attack cought");
+                enemy.atkList[0].parent.parent.actions.status = 'waiting';
+                enemy.atkList[0].parent.parent.actions.nextCounter = 0;
+                enemy.atkList[0].parent.parent.underAtk = {
+                    damage: enemy.atkList.damage,
+                    counter: 0
+                };
+            }
+            else {
+                console.log('[PLAYER] Failed to catch '+enemy.atkList[0].parent.parent.name+"'s attack'");
+                enemy.atkList[0].counter = enemy.atkList[0].parent.atkTime;
+            }
+            enemy.atkList[0].counter = enemy.atkList[0].parent.atkTime;
+            enemy.atkList.shift();
+        }
+
+        // Enemies
+        for (let theEnemy of enemy.children) {
+            // Attacking
+            if (theEnemy.actions.attacking.nextCounter < theEnemy.actions.atkInterval) {
+                theEnemy.actions.attacking.nextCounter += config.interval;
+            }
+            else {
+                if (theEnemy.actions.status == 'waiting') {
+                    theEnemy.actions.status = 'attacking';
+                    theEnemy.actions.decide();
+                    theEnemy.movesfx.play(theEnemy.actions.attacking.movesfx);
+                    theEnemy.actions.attacking.audio.play();
+                    enemy.atkList.push(theEnemy.actions.attacking);
+                }
+                else if (theEnemy.actions.status == 'attacking') {
+                    if (theEnemy.actions.attacking.counter < theEnemy.actions.atkTime) {
+                        theEnemy.actions.attacking.counter += config.interval;
+                    }
+                    else {
+                        theEnemy.actions.status = 'waiting';
+                        player.getHit(theEnemy.actions.attacking.damage);
+                        theEnemy.actions.attacking.nextCounter = 0;
+                        enemy.atkList.shift();
+                    }
+                }
+            }
+
+            // Under Attack
+            if (theEnemy.underAtk != null) {
+                if (theEnemy.underAtk.counter < game.settings.player.atkTime) {
+                    theEnemy.underAtk += config.interval;
+                }
+                else {
+                    theEnemy.underAtk = null;
+                    theEnemy.getHit(theEnemy.underAtk.damage);
+                }
+            }
+
+            // Animations & Moves FX
+            theEnemy.anims.update();
+            theEnemy.movesfx.update();
+        }
+        if (inst.played != null) inst.played = null;
+
         // Status update
         data.background.image = data.background.images['default'];
 
+        if (player.hp < 0) player.hp = 0
         player.hpBar.rect.width = player.maxHpBar.rect.width * player.hp / player.maxHp;
+        for (let theEnemy of enemy.children) {
+            if (theEnemy.hp < 0) theEnemy.hp = 0;
+            theEnemy.hpBar.rect.width = theEnemy.maxHpBar.rect.width * theEnemy.hp / theEnemy.maxHp;
+        }
 
-        data.currentLevel.update();
     },
     paint: function () {
         let data = game.loaded.data;
-        let pauseButton = game.loaded.data.pauseButton;
-        let enemy = game.loaded.data.enemy;
-        let player = game.loaded.data.player;
-        let instruments = game.loaded.data.instruments;
+        let pauseButton = data.pauseButton;
+        let enemy = data.enemy;
+        let player = data.player;
+        let inst = data.inst;
 
         game.clearScreen();
         // Draw background
@@ -573,9 +688,21 @@ game.scenes.add( {
         // Draw Current Level
         data.currentLevel.paint();
 
+        for (let theEnemy of enemy.children) {
+            // Draw Enemy
+            game.ctx.filter = theEnemy.filter;
+            game.ctx.drawImage.apply(game.ctx, Object.values(theEnemy.drawArgs));
+            // Draw Enemy HP-bar
+            game.ctx.filter = theEnemy.maxHpBar.filter;
+            game.ctx.fillStyle = theEnemy.maxHpBar.color;
+            game.ctx.fillRect.apply(game.ctx, Object.values(theEnemy.maxHpBar.rect));
+            game.ctx.filter = theEnemy.hpBar.filter;
+            game.ctx.fillStyle = theEnemy.hpBar.color;
+            game.ctx.fillRect.apply(game.ctx, Object.values(theEnemy.hpBar.rect));
+        }
         //  Draw instrument
-        game.ctx.filter = instruments[player.instrument].filter;
-        game.ctx.drawImage.apply(game.ctx, Object.values(instruments[player.instrument].drawArgs));
+        game.ctx.filter = inst.filter;
+        game.ctx.drawImage.apply(game.ctx, Object.values(inst.drawArgs));
         //  Draw Player's HP-bar
         game.ctx.filter = player.maxHpBar.filter;
         game.ctx.fillStyle = player.maxHpBar.color;
@@ -611,75 +738,3 @@ game.panels.add( {
 
     }
 } );
-
-
-// ===================================
-
-function sceneStart (scene) {
-    console.log(scene.name + ' scene preloading..');
-    scene.preload();
-    console.log(scene.name + ' scene creating..');
-    scene.create();
-    console.log(scene.name + ' scene running...');
-    scene.status = 'running';
-}
-function sceneStop (scene) {
-    console.log(scene.name + ' scene stopped');
-    scene.status = 'stopped';
-    game.clearLoaded();
-}
-function scenePause (scene) {
-    if (scene.status == 'running') {
-        console.log(scene.name + ' scene paused');
-        scene.status = 'paused';
-    } else {
-        console.log('[ERROR] ' + scene.name + ' scene is not running')
-    }
-}
-function sceneWake (scene) {
-    if (scene.status == 'paused') {
-        console.log(scene.name + ' scene waked');
-        scene.status = 'running';
-    } else {
-        console.log('[ERROR] ' + scene.name + ' scene is not paused');
-    }
-}
-
-function panelsInit (panels) {
-    for (let panel of panels) {
-        panel.preload();
-        panel.create();
-    }
-}
-function panelOn (panel) {
-    panel.status = 'on';
-}
-function panelOff (panel) {
-    panel.status = 'off';
-}
-
-function Panels () {
-    this.children = [];
-    this.init = function () {
-        panelsInit(this.children);
-    };
-    this.add = function (newPanel) {
-        this.children.push(newPanel);
-    };
-    this.get = function (panelName) {
-        return getFromChildren(panelName, this.children)
-    };
-    this.on = function (panelName) {
-        panelOn(this.get(panelName));
-    };
-    this.off = function (panelName) {
-        panelOff(this.get(panelName));
-    };
-}
-
-function Sprite (image, width, height) {
-    this.image = image;
-    this.width = width;
-    this.height = height;
-    this.amount = [ image.width/width, image.height/height ];
-}

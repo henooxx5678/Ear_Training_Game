@@ -37,3 +37,10 @@ function isHover (shape, ...args) {
         }
     }
 }
+
+// === Math ===
+function getDistance (point1, point2) {
+    let sqx = Math.pow(point1.x - point2.x, 2);
+    let sqy = Math.pow(point1.y - point2.y, 2);
+    return Math.sqrt(sqx + sqy);
+}
