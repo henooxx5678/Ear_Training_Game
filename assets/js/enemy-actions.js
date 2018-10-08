@@ -1,4 +1,5 @@
 game.levels.get('Test').enemies[0].get('bat').getActions = function () {
+    let thisEnemy = this;
     return {
         atkTime: 3000,      // Measured in milliseconds
         atkInterval: 2000,  // Measured in milliseconds
@@ -28,7 +29,8 @@ game.levels.get('Test').enemies[0].get('bat').getActions = function () {
                 this.attacking.audio = this.voices.heavy['a4'];
                 this.attacking.damage = this.damage['high'];
             }
-            this.attacking.movesfx = 'attack';
+            game.loaded.data.enemy.get(thisEnemy.name).movesfx.play('attack');
+            this.attacking.audio.play();
             this.attacking.note = 'a4';
             this.attacking.counter = 0;
         },

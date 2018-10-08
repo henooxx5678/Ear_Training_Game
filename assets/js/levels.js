@@ -41,6 +41,9 @@ game.levels.add( {
             atkList: [],
             add: function (newOne) {
                 this.children.push(newOne);
+            },
+            get: function (theName) {
+                return getFromChildren(theName, this.children);
             }
         };
         this.updateEnemy();
@@ -85,6 +88,8 @@ game.levels.add( {
             newEnemy.underAtk = null;
             newEnemy.getHit = function (damage) {
                 newEnemy.hp -= damage;
+                newEnemy.anims.play('hurt');
+                newEnemy.movesfx.play('hurt');
             };
             newEnemy.generateArgs = function () {
                 newEnemy.drawArgs = {

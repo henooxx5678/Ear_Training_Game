@@ -409,110 +409,7 @@ game.scenes.add( {
             height: data.pauseButton.height
         }
 
-        let pausedPanel = sceneConfig.panels.paused;
-        this.panels.add( {
-            name: 'Paused',
-            status: 'off',
-            filter: pausedPanel.filter,
-            x: pausedPanel.x,
-            y: pausedPanel.y,
-            width: pausedPanel.width,
-            height: pausedPanel.height,
-            title: Object.assign( {}, pausedPanel.title ),
-            buttons: JSON.parse( JSON.stringify(pausedPanel.buttons) ),
-            mask: JSON.parse( JSON.stringify(pausedPanel.mask) ),
-            preload: function () {
-                game.loadImage('paused-panel', 'assets/img/paused-panel.png');
-                game.loadImage('paused-panel-buttons', 'assets/img/paused-panel-buttons.png');
-                game.loadImage('paused-panel-buttons-hover', 'assets/img/paused-panel-buttons-hover.png');
-            },
-            create: function () {
-                let button = [];
-
-                this.image = game.getImage('paused-panel');
-                this.buttons.images = {
-                    normal: game.getImage('paused-panel-buttons'),
-                    hover: game.getImage('paused-panel-buttons-hover')
-                };
-                for (let i = 0; i < this.buttons.names.length; i++) {
-                    button[i] = {
-                        name: this.buttons.names[i],
-                        filter: this.buttons.filter['normal'],
-                        x: this.x + this.buttons.leftTop.x,
-                        y: this.y + this.buttons.leftTop.y + (i * this.buttons.intervalY),
-                        width: this.buttons.width,
-                        height: this.buttons.height,
-
-                    }
-                    button[i].drawArgs = {
-                        image: this.buttons.images['normal'],
-                        sx: 0,
-                        sy: i * this.buttons.height,
-                        sWidth: button[i].width,
-                        sHeight: button[i].height,
-                        dx: button[i].x,
-                        dy: button[i].y,
-                        dWidth: button[i].width,
-                        dHeight: button[i].height
-                    };
-                    button[i].isHoverArgs = {
-                        shape: 'rect',
-                        x: button[i].x,
-                        y: button[i].y,
-                        width: button[i].width,
-                        height: button[i].height
-                    };
-                }
-                game.loaded.data.pausedPanelButton = button;
-            },
-            update: function () {
-                let button = game.loaded.data.pausedPanelButton;
-
-                if ( !isHover('rect', this.x, this.y, this.width, this.height) && game.input.mouseClick ) {
-                    buttonClick(game.scenes.get('Game'), 'Resume');
-                }
-
-                for (let theButton of button) {
-                    if( isHover.apply(null, Object.values(theButton.isHoverArgs)) ) {
-                        theButton.filter = this.buttons.filter['hover'];
-                        theButton.drawArgs.image = this.buttons.images['hover'];
-                        if (game.input.mouseClick) {
-                            buttonClick(game.scenes.get('Game'), theButton.name);
-                        }
-                    } else {
-                        theButton.filter = this.buttons.filter['normal'];
-                        theButton.drawArgs.image = this.buttons.images['normal'];
-                    }
-                }
-            },
-            paint: function () {
-                let data = game.loaded.data;
-                let button = game.loaded.data.pausedPanelButton;
-
-                // Draw mask
-                game.ctx.filter = this.mask.filter['normal'];
-                game.ctx.fillStyle = this.mask.color['normal'];
-                game.ctx.fillRect.apply(game.ctx, Object.values(this.mask.rect));
-
-                // Draw pause-button
-                game.ctx.filter = data.pauseButton.filter;
-                game.ctx.drawImage.apply(game.ctx, Object.values(data.pauseButton.drawArgs));
-
-                // Draw background
-                game.ctx.filter = this.filter['normal'];
-                game.ctx.drawImage(this.image, this.x, this.y);
-
-                // Draw buttons
-                game.ctx.filter = this.buttons.filter['normal'];
-                for (let theButton of button) {
-                    game.ctx.filter = theButton.filter;
-                    game.ctx.drawImage.apply(game.ctx, Object.values(theButton.drawArgs))
-                }
-
-                game.ctx.filter = 'none';
-            }
-        } );
-        this.panels.init();
+        this.createPanels();
 
         data.player = {
             hp: 100,
@@ -568,7 +465,6 @@ game.scenes.add( {
                 return this;
             }
         }.init();
-
     },
     update: function () {
         let data = game.loaded.data;
@@ -586,41 +482,51 @@ game.scenes.add( {
             }
         }
 
+        // player's death
+        if ( player.hp <= 0 ) {
+            console.log('Player Died.');
+            gameOver();
+        }
+
         data.currentLevel.update();
 
         // Player Instrument playing
+        if (true) inst.playable = true;
         if (inst.playable) {
             if (game.input.keyPress[65]) {      // key: A
                 inst.played = 'a4';
-                inst.notes['a4'].play();
+                // inst.notes['a4'].play();
             }
             if (game.input.keyPress[67]) {      // key: C
                 inst.played = 'c4';
-                inst.notes['c4'].play();
+                // inst.notes['c4'].play();
             }
         }
 
         if (inst.played != null && enemy.atkList.length > 0) {
             if (inst.played == enemy.atkList[0].note) {
                 console.log('[PLAYER] '+enemy.atkList[0].parent.parent.name+"'s attack cought");
-                enemy.atkList[0].parent.parent.actions.status = 'waiting';
-                enemy.atkList[0].parent.parent.actions.nextCounter = 0;
+                enemy.atkList[0].parent.parent.actions.status = 'underAttacking';
                 enemy.atkList[0].parent.parent.underAtk = {
-                    damage: enemy.atkList.damage,
+                    damage: enemy.atkList[0].damage,
                     counter: 0
                 };
+                enemy.atkList.shift();
             }
             else {
                 console.log('[PLAYER] Failed to catch '+enemy.atkList[0].parent.parent.name+"'s attack'");
-                enemy.atkList[0].counter = enemy.atkList[0].parent.atkTime;
+                enemy.atkList[0].parent.parent.status = 'succesAttacking';
+                enemy.atkList[0].parent.parent.underAtk = {
+                    damage: enemy.atkList[0].damage,
+                    counter: 0
+                }
+                enemy.atkList.shift();
             }
-            enemy.atkList[0].counter = enemy.atkList[0].parent.atkTime;
-            enemy.atkList.shift();
         }
 
         // Enemies
         for (let theEnemy of enemy.children) {
-            // Attacking
+            // Status
             if (theEnemy.actions.attacking.nextCounter < theEnemy.actions.atkInterval) {
                 theEnemy.actions.attacking.nextCounter += config.interval;
             }
@@ -628,8 +534,6 @@ game.scenes.add( {
                 if (theEnemy.actions.status == 'waiting') {
                     theEnemy.actions.status = 'attacking';
                     theEnemy.actions.decide();
-                    theEnemy.movesfx.play(theEnemy.actions.attacking.movesfx);
-                    theEnemy.actions.attacking.audio.play();
                     enemy.atkList.push(theEnemy.actions.attacking);
                 }
                 else if (theEnemy.actions.status == 'attacking') {
@@ -638,21 +542,32 @@ game.scenes.add( {
                     }
                     else {
                         theEnemy.actions.status = 'waiting';
-                        player.getHit(theEnemy.actions.attacking.damage);
                         theEnemy.actions.attacking.nextCounter = 0;
+                        player.getHit(theEnemy.actions.attacking.damage);
                         enemy.atkList.shift();
                     }
                 }
-            }
-
-            // Under Attack
-            if (theEnemy.underAtk != null) {
-                if (theEnemy.underAtk.counter < game.settings.player.atkTime) {
-                    theEnemy.underAtk += config.interval;
+                else if (theEnemy.actions.status == 'underAttacking') {
+                    if (theEnemy.underAtk.counter < game.settings.player.atkTime) {
+                        theEnemy.underAtk.counter += config.interval;
+                    }
+                    else {
+                        theEnemy.actions.status = 'waiting';
+                        theEnemy.actions.attacking.nextCounter = 0;
+                        theEnemy.getHit(theEnemy.underAtk.damage);
+                        theEnemy.underAtk = null;
+                    }
                 }
-                else {
-                    theEnemy.underAtk = null;
-                    theEnemy.getHit(theEnemy.underAtk.damage);
+                else if (theEnemy.actions.status == 'succesAttacking') {
+                    if (theEnemy.underAtk.counter < game.settings.player.atkTime) {
+                        theEnemy.underAtk.counter += config.interval;
+                    }
+                    else {
+                        theEnemy.actions.status = 'waiting';
+                        theEnemy.actions.attacking.nextCounter = 0;
+                        player.getHit(theEnemy.underAtk.damage);
+                        theEnemy.underAtk = null;
+                    }
                 }
             }
 
@@ -718,6 +633,208 @@ game.scenes.add( {
         game.ctx.filter = 'none';
     }
 } );
+
+game.scenes.get('Game').createPanels = function () {
+    // add Panel "Paused"
+    let panelConfig = config.scenes['game'].panels.paused;
+    this.panels.add( {
+        name: 'Paused',
+        status: 'off',
+        filter: panelConfig.filter,
+        x: panelConfig.x,
+        y: panelConfig.y,
+        width: panelConfig.width,
+        height: panelConfig.height,
+        buttons: JSON.parse( JSON.stringify(panelConfig.buttons) ),
+        mask: JSON.parse( JSON.stringify(panelConfig.mask) ),
+        preload: function () {
+            game.loadImage('paused-panel', 'assets/img/panels/paused-panel.png');
+            game.loadImage('paused-panel-buttons', 'assets/img/panels/paused-panel-buttons.png');
+            game.loadImage('paused-panel-buttons-hover', 'assets/img/panels/paused-panel-buttons-hover.png');
+        },
+        create: function () {
+            let button = [];
+
+            this.image = game.getImage('paused-panel');
+            this.buttons.images = {
+                normal: game.getImage('paused-panel-buttons'),
+                hover: game.getImage('paused-panel-buttons-hover')
+            };
+            for (let i = 0; i < this.buttons.names.length; i++) {
+                button[i] = {
+                    name: this.buttons.names[i],
+                    filter: this.buttons.filter['normal'],
+                    x: this.x + this.buttons.leftTop.x,
+                    y: this.y + this.buttons.leftTop.y + (i * this.buttons.intervalY),
+                    width: this.buttons.width,
+                    height: this.buttons.height
+                }
+                button[i].drawArgs = {
+                    image: this.buttons.images['normal'],
+                    sx: 0,
+                    sy: i * this.buttons.height,
+                    sWidth: button[i].width,
+                    sHeight: button[i].height,
+                    dx: button[i].x,
+                    dy: button[i].y,
+                    dWidth: button[i].width,
+                    dHeight: button[i].height
+                };
+                button[i].isHoverArgs = {
+                    shape: 'rect',
+                    x: button[i].x,
+                    y: button[i].y,
+                    width: button[i].width,
+                    height: button[i].height
+                };
+            }
+            game.loaded.data.pausedPanelButton = button;
+        },
+        update: function () {
+            let button = game.loaded.data.pausedPanelButton;
+
+            if ( !isHover('rect', this.x, this.y, this.width, this.height) && game.input.mouseClick ) {
+                buttonClick(game.scenes.get('Game'), 'Resume');
+            }
+
+            for (let theButton of button) {
+                if( isHover.apply(null, Object.values(theButton.isHoverArgs)) ) {
+                    theButton.filter = this.buttons.filter['hover'];
+                    theButton.drawArgs.image = this.buttons.images['hover'];
+                    if (game.input.mouseClick) {
+                        buttonClick(game.scenes.get('Game'), theButton.name);
+                    }
+                } else {
+                    theButton.filter = this.buttons.filter['normal'];
+                    theButton.drawArgs.image = this.buttons.images['normal'];
+                }
+            }
+        },
+        paint: function () {
+            let data = game.loaded.data;
+            let button = data.pausedPanelButton;
+
+            // Draw mask
+            game.ctx.filter = this.mask.filter['normal'];
+            game.ctx.fillStyle = this.mask.color['normal'];
+            game.ctx.fillRect.apply(game.ctx, Object.values(this.mask.rect));
+
+            // Draw pause-button
+            game.ctx.filter = data.pauseButton.filter;
+            game.ctx.drawImage.apply(game.ctx, Object.values(data.pauseButton.drawArgs));
+
+            // Draw background
+            game.ctx.filter = this.filter['normal'];
+            game.ctx.drawImage(this.image, this.x, this.y);
+
+            // Draw buttons
+            game.ctx.filter = this.buttons.filter['normal'];
+            for (let theButton of button) {
+                game.ctx.filter = theButton.filter;
+                game.ctx.drawImage.apply(game.ctx, Object.values(theButton.drawArgs))
+            }
+
+            game.ctx.filter = 'none';
+        }
+    } );
+
+    //add Panel "GameOver"
+    panelConfig = config.scenes['game'].panels.gameOver;
+    this.panels.add( {
+        name: 'GameOver',
+        status: 'off',
+        filter: panelConfig.filter,
+        x: panelConfig.x,
+        y: panelConfig.y,
+        width: panelConfig.width,
+        height: panelConfig.height,
+        buttons: JSON.parse( JSON.stringify(panelConfig.buttons) ),
+        mask: JSON.parse( JSON.stringify(panelConfig.mask) ),
+        preload: function () {
+            game.loadImage('gameOver-panel', 'assets/img/panels/game-over-panel.png');
+            game.loadImage('gameOver-panel-buttons', 'assets/img/panels/game-over-panel-buttons.png');
+            game.loadImage('gameOver-panel-buttons-hover', 'assets/img/panels/game-over-panel-buttons-hover.png');
+        },
+        create: function () {
+            let button = [];
+
+            this.image = game.getImage('gameOver-panel');
+            this.buttons.images = {
+                normal: game.getImage('gameOver-panel-buttons'),
+                hover: game.getImage('gameOver-panel-buttons-hover')
+            };
+            for (let i = 0; i < this.buttons.names.length; i++) {
+                button[i] = {
+                    name: this.buttons.names[i],
+                    filter: this.buttons.filter['normal'],
+                    x: this.x + this.buttons.leftTop.x,
+                    y: this.y + this.buttons.leftTop.y + (i * this.buttons.intervalY),
+                    width: this.buttons.width,
+                    height: this.buttons.height
+                }
+                button[i].drawArgs = {
+                    image: this.buttons.images['normal'],
+                    sx: 0,
+                    sy: i * this.buttons.height,
+                    sWidth: button[i].width,
+                    sHeight: button[i].height,
+                    dx: button[i].x,
+                    dy: button[i].y,
+                    dWidth: button[i].width,
+                    dHeight: button[i].height
+                };
+                button[i].isHoverArgs = {
+                    shape: 'rect',
+                    x: button[i].x,
+                    y: button[i].y,
+                    width: button[i].width,
+                    height: button[i].height
+                };
+            }
+            game.loaded.data.gameOverPanelButton = button;
+        },
+        update: function () {
+            let button = game.loaded.data.gameOverPanelButton;
+
+            for (let theButton of button) {
+                if( isHover.apply(null, Object.values(theButton.isHoverArgs)) ) {
+                    theButton.filter = this.buttons.filter['hover'];
+                    theButton.drawArgs.image = this.buttons.images['hover'];
+                    if (game.input.mouseClick) {
+                        buttonClick(game.scenes.get('Game'), theButton.name);
+                    }
+                } else {
+                    theButton.filter = this.buttons.filter['normal'];
+                    theButton.drawArgs.image = this.buttons.images['normal'];
+                }
+            }
+        },
+        paint: function () {
+            let data = game.loaded.data;
+            let button = data.gameOverPanelButton;
+
+            // Draw mask
+            game.ctx.filter = this.mask.filter['normal'];
+            game.ctx.fillStyle = this.mask.color['normal'];
+            game.ctx.fillRect.apply(game.ctx, Object.values(this.mask.rect));
+
+            // Draw background
+            game.ctx.filter = this.filter['normal'];
+            game.ctx.drawImage(this.image, this.x, this.y);
+
+            // Draw buttons
+            game.ctx.filter = this.buttons.filter['normal'];
+            for (let theButton of button) {
+                game.ctx.filter = theButton.filter;
+                game.ctx.drawImage.apply(game.ctx, Object.values(theButton.drawArgs))
+            }
+
+            game.ctx.filter = 'none';
+        }
+    } );
+
+    this.panels.init();
+}
 
 
 // Options panel

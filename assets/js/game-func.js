@@ -69,10 +69,23 @@ function buttonClick (scene, name) {
             scene.panels.off('Paused');
         }
         else if (name == 'Quit') {
-            scene.panels.off('Paused');
+            scene.panels.offAll();
+            switchScene(scene, 'Menu');
+        }
+        else if (name == 'Retry') {
+            scene.panels.offAll();
+            switchScene(scene, 'Game');
+        }
+        else if (name == 'Exit To Menu') {
+            scene.panels.offAll();
             switchScene(scene, 'Menu');
         }
     }
+}
+function gameOver () {
+    console.log('GAME OVER!');
+    game.scenes.pause('Game');
+    game.scenes.get('Game').panels.on('GameOver');
 }
 
 function switchScene(scene, newSceneName) {
@@ -113,23 +126,13 @@ function sceneWake (scene) {
     }
 }
 
-function panelsInit (panels) {
-    for (let panel of panels) {
-        panel.preload();
-        panel.create();
-    }
-}
-function panelOn (panel) {
-    panel.status = 'on';
-}
-function panelOff (panel) {
-    panel.status = 'off';
-}
-
 function Panels () {
     this.children = [];
     this.init = function () {
-        panelsInit(this.children);
+        for (let panel of this.children) {
+            panel.preload();
+            panel.create();
+        }
     };
     this.add = function (newOne) {
         this.children.push(newOne);
@@ -138,11 +141,16 @@ function Panels () {
         return getFromChildren(theName, this.children)
     };
     this.on = function (theName) {
-        panelOn(this.get(theName));
+        this.get(theName).status = 'on';
     };
     this.off = function (theName) {
-        panelOff(this.get(theName));
+        this.get(theName).status = 'off';
     };
+    this.offAll = function () {
+        for (let panel of this.children) {
+            panel.status = 'off';
+        }
+    }
 }
 
 function Sprite (type, image, width, height) {
@@ -163,8 +171,8 @@ function Sprite (type, image, width, height) {
         },
         play: function (animName) {
             this.playing = animName;
-            this.parent.drawArgs.sx = this.get(animName).framesIndex[0].x * this.width;
-            this.parent.drawArgs.sy = this.get(animName).framesIndex[0].y * this.height;
+            this.parent.drawArgs.sx = this.get(animName).framesIndex[0].x * this.parent.width;
+            this.parent.drawArgs.sy = this.get(animName).framesIndex[0].y * this.parent.height;
             this.counter = 0;
         },
         update: function () {
@@ -176,13 +184,17 @@ function Sprite (type, image, width, height) {
             if (this.counter >= this.get(this.playing).framesInterval) {
                 if (++this.index < this.get(this.playing).framesIndex.length) {
                     let theFrameIndex = this.get(this.playing).framesIndex[this.index];
-                    this.parent.drawArgs.sx = theFrameIndex.x * this.width;
-                    this.parent.drawArgs.sy = theFrameIndex.y * this.height;
+                    this.parent.drawArgs.sx = theFrameIndex.x * this.parent.width;
+                    this.parent.drawArgs.sy = theFrameIndex.y * this.parent.height;
+                }
+                else if (this.get(this.playing).repeat == 'loop') {
+                    this.index = 0;
                 }
                 else {
                     this.parent.drawArgs.sx = 0;
                     this.parent.drawArgs.sy = 0;
                     this.playing = null;
+                    this.index = 0;
                 }
                 this.counter = 0;
             }
@@ -196,6 +208,22 @@ function Sprite (type, image, width, height) {
                 }
             }
             return result;
+        },
+        createFor: function (type) {
+            this.add( {
+                name: 'defualt',
+                framesIndex: [ {x:0, y:0} ],
+                framesInterval: config.interval,
+                repeat: 'loop'
+            } );
+            if (type == 'enemy') {
+                this.add( {
+                    name: 'hurt',
+                    framesIndex: [ {x:1, y:0} ],
+                    framesInterval: game.settings.enemy.hurtAnimTime,
+                    repeat: false
+                } );
+            }
         }
     };
     this.movesfx = {
@@ -208,12 +236,13 @@ function Sprite (type, image, width, height) {
         get: function (theName) {
             return getFromChildren(theName, this.children);
         },
-        play: function (theName) {
+        play: function (theName, theTimeCost) {
             if (this.get(theName).type == 'simple-moves') {
                 let totalDistance = 0;
                 let directions = [];
                 let theMove = this.get(theName);
                 let point = theMove.point;
+                let timeCost = theTimeCost || theMove.timeCost;
 
                 for (let i = 1; i < point.length; i++) {
                     let theDistance = getDistance(point[i], point[i-1]);
@@ -225,7 +254,7 @@ function Sprite (type, image, width, height) {
                     directions.push(theDirection);
                 }
                 this.playing = theName;
-                theMove.speed = totalDistance / theMove.timeCost;
+                theMove.speed = totalDistance / timeCost;
                 theMove.directions = directions;
                 theMove.pointIndex = 0;
                 theMove.deltaPos = { x:0, y:0 };
@@ -269,13 +298,20 @@ function Sprite (type, image, width, height) {
                     name: 'attack',
                     type: 'simple-moves',
                     point: [ {x:0, y:0}, {x:0, y:10}, {x:0, y:0} ],
-                    timeCost: 160      // Measured in milliseconds
+                    timeCost: game.settings.enemy.atkAnimTime
+                } );
+                this.add( {
+                    name: 'hurt',
+                    type: 'simple-moves',
+                    point: [ {x:0, y:0}, {x:0, y:-12}, {x:0, y:0} ],
+                    timeCost: game.settings.enemy.hurtAnimTime
                 } );
             }
         }
     };
     this.init = function () {
         this.anims.parent = this;
+        this.anims.createFor(type);
         this.movesfx.parent = this;
         this.movesfx.createFor(type);
         delete this.init;
